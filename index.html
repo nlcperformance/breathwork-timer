@@ -27,21 +27,28 @@
             background-color: #050505;
             color: #e5e5e5;
             font-family: 'Oswald', sans-serif;
-            overflow: hidden;
+            overflow: hidden; /* Prevents all scrolling */
             touch-action: manipulation;
         }
 
         .font-mono { font-family: 'JetBrains Mono', monospace; }
         
+        /* Custom Animations */
+        @keyframes pulse-orange {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255, 99, 0, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 99, 0, 0); }
+        }
+        .animate-pulse-orange { animation: pulse-orange 2s infinite; }
+
         .btn-tactical {
             background: #111;
             border: 1px solid #333;
             color: #888;
             text-transform: uppercase;
-            letter-spacing: 0.1em;
+            letter-spacing: 0.05em;
             transition: all 0.2s ease;
         }
-        .btn-tactical:active { transform: translateY(2px); }
+        .btn-tactical:active { transform: scale(0.98); }
         .btn-tactical.selected {
             border-color: #ff6300;
             background: #1a0a00;
@@ -51,8 +58,8 @@
 
         /* Breathing Circle Animation Classes */
         .breath-circle {
-            width: 150px;
-            height: 150px;
+            width: 140px;
+            height: 140px;
             border-radius: 50%;
             border: 2px solid #333;
             background: radial-gradient(circle, rgba(255,99,0,0.2) 0%, rgba(5,5,5,0) 70%);
@@ -100,12 +107,11 @@
                 if (!AudioEngine.ctx) return;
                 const now = AudioEngine.ctx.currentTime;
                 
-                // Deep Tibetan Bell Synth
                 const osc = AudioEngine.ctx.createOscillator();
                 const gain = AudioEngine.ctx.createGain();
                 
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(320, now); // Resonant frequency
+                osc.frequency.setValueAtTime(320, now); 
                 
                 gain.gain.setValueAtTime(0, now);
                 gain.gain.linearRampToValueAtTime(0.5, now + 0.1);
@@ -119,9 +125,9 @@
             },
             speak: (text) => {
                 if (!window.speechSynthesis) return;
-                window.speechSynthesis.cancel(); // clear queue
+                window.speechSynthesis.cancel(); 
                 const utterance = new SpeechSynthesisUtterance(text);
-                utterance.rate = 0.85; // Calm, slow pace
+                utterance.rate = 0.85; 
                 utterance.pitch = 0.9;
                 window.speechSynthesis.speak(utterance);
             }
@@ -131,7 +137,8 @@
         const PROTOCOLS = {
             BOX: {
                 name: 'Box Breathing',
-                desc: 'Balance & Focus',
+                shortName: 'BOX',
+                desc: 'Balance',
                 sequence: [
                     { name: 'INHALE', multiplier: 1 },
                     { name: 'HOLD', multiplier: 1 },
@@ -141,7 +148,8 @@
             },
             P142: {
                 name: '1:4:2 Protocol',
-                desc: 'Deep CO2 Tolerance',
+                shortName: '1:4:2',
+                desc: 'Tolerance',
                 sequence: [
                     { name: 'INHALE', multiplier: 1 },
                     { name: 'HOLD', multiplier: 4 },
@@ -150,7 +158,8 @@
             },
             CADENCE: {
                 name: 'Cadence 1:2',
-                desc: 'Down-Regulation',
+                shortName: 'CADENCE',
+                desc: 'Down-Reg',
                 sequence: [
                     { name: 'INHALE', multiplier: 1 },
                     { name: 'EXHALE', multiplier: 2 }
@@ -160,8 +169,8 @@
 
         // --- FOOTER COMPONENT ---
         const Footer = () => (
-            <div className="w-full text-center pb-4 pt-4 mt-auto">
-                <span className="text-[11px] font-bold tracking-[0.3em] text-gray-500 uppercase">
+            <div className="w-full text-center pb-2 pt-2 mt-auto">
+                <span className="text-[10px] font-bold tracking-[0.3em] text-gray-600 uppercase">
                     Adapt. Recover. Master.
                 </span>
             </div>
@@ -171,7 +180,7 @@
         const Setup = ({ onLaunch }) => {
             const [co2Score, setCo2Score] = useState(40);
             const [protocol, setProtocol] = useState('BOX');
-            const [duration, setDuration] = useState(5); // minutes
+            const [duration, setDuration] = useState(5); 
 
             // Calculate Base Unit (X) based on exact Shift Adapt tiers
             const calculateBase = (score) => {
@@ -179,12 +188,12 @@
                 if (score >= 60) return 7;
                 if (score >= 40) return 6;
                 if (score >= 20) return 5;
-                return 3; // < 20 seconds
+                return 3; 
             };
             const baseUnit = calculateBase(co2Score);
 
             const handleStart = () => {
-                AudioEngine.init(); // Unlock audio contexts
+                AudioEngine.init(); 
                 onLaunch({
                     co2Score,
                     baseUnit,
@@ -194,75 +203,79 @@
             };
 
             return (
-                <div className="h-full flex flex-col p-6 max-w-lg mx-auto animate-fade-in">
-                    <div className="text-center mt-4 mb-8">
-                        <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter leading-none text-white">
+                <div className="h-full flex flex-col p-4 max-w-lg mx-auto animate-fade-in">
+                    <div className="text-center mt-2 mb-2">
+                        <h1 className="text-4xl font-black italic tracking-tighter leading-none text-white">
                             NLC <span className="text-brand-orange">PERFORMANCE</span>
                         </h1>
-                        <h2 className="text-sm font-bold tracking-[0.4em] text-gray-500 uppercase mt-2">Breathing Protocol</h2>
-                        <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent mt-6"></div>
+                        <h2 className="text-xs font-bold tracking-[0.4em] text-gray-500 uppercase mt-1">Breathing Protocol</h2>
+                        <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent mt-4"></div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto hide-scrollbar">
-                        {/* CO2 Tolerance Input */}
-                        <div className="mb-8">
-                            <label className="text-xs text-brand-orange uppercase mb-2 block font-bold tracking-widest">1. Daily CO2 Tolerance (Secs)</label>
-                            <div className="flex items-center gap-4 bg-[#111] p-2 border border-gray-800">
+                    {/* Flex distribution to avoid scrolling entirely */}
+                    <div className="flex-1 flex flex-col justify-evenly py-2">
+                        
+                        {/* 1. CO2 Input */}
+                        <div className="w-full">
+                            <label className="text-[11px] text-brand-orange uppercase mb-1 block font-bold tracking-widest">1. Daily CO2 Tolerance (Secs)</label>
+                            <div className="flex items-center justify-between bg-[#111] p-1 border border-gray-800 rounded-md">
                                 <button 
                                     onClick={() => setCo2Score(Math.max(10, co2Score - 5))}
-                                    className="w-16 h-16 bg-black text-white text-3xl font-bold border border-gray-700 active:bg-gray-800"
+                                    className="w-14 h-14 flex items-center justify-center text-3xl text-gray-400 bg-black rounded-sm active:bg-gray-900 transition-colors"
                                 >-</button>
-                                <div className="flex-1 text-center">
-                                    <div className="text-5xl font-mono font-bold text-white">{co2Score}</div>
-                                    <div className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Base Breath: {baseUnit}s</div>
+                                <div className="text-center flex-1">
+                                    <div className="text-4xl font-mono font-bold text-white leading-none">{co2Score}</div>
+                                    <div className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Base Breath: <span className="text-white">{baseUnit}s</span></div>
                                 </div>
                                 <button 
                                     onClick={() => setCo2Score(Math.min(120, co2Score + 5))}
-                                    className="w-16 h-16 bg-black text-white text-3xl font-bold border border-gray-700 active:bg-gray-800"
+                                    className="w-14 h-14 flex items-center justify-center text-3xl text-gray-400 bg-black rounded-sm active:bg-gray-900 transition-colors"
                                 >+</button>
                             </div>
                         </div>
 
-                        {/* Protocol Selection */}
-                        <div className="mb-8">
-                            <label className="text-xs text-brand-orange uppercase mb-2 block font-bold tracking-widest">2. Select Architecture</label>
-                            <div className="flex flex-col gap-2">
+                        {/* 2. Protocol Selection */}
+                        <div className="w-full">
+                            <label className="text-[11px] text-brand-orange uppercase mb-1 block font-bold tracking-widest">2. Select Architecture</label>
+                            <div className="grid grid-cols-3 gap-2">
                                 {Object.entries(PROTOCOLS).map(([key, data]) => (
                                     <button 
                                         key={key}
                                         onClick={() => setProtocol(key)}
-                                        className={`btn-tactical py-4 px-4 flex justify-between items-center ${protocol === key ? 'selected' : ''}`}
+                                        className={`btn-tactical py-4 px-1 rounded-md flex flex-col items-center justify-center ${protocol === key ? 'selected' : ''}`}
                                     >
-                                        <span className="font-bold text-lg">{data.name}</span>
-                                        <span className="text-xs font-mono">{data.desc}</span>
+                                        <span className="font-bold text-sm md:text-base leading-tight mb-1">{data.shortName}</span>
+                                        <span className="text-[9px] font-mono text-gray-500 leading-tight">{data.desc}</span>
                                     </button>
                                 ))}
                             </div>
                         </div>
 
-                        {/* Duration Selection */}
-                        <div className="mb-6">
-                            <label className="text-xs text-brand-orange uppercase mb-2 block font-bold tracking-widest">3. Session Duration</label>
+                        {/* 3. Duration Selection */}
+                        <div className="w-full">
+                            <label className="text-[11px] text-brand-orange uppercase mb-1 block font-bold tracking-widest">3. Session Duration</label>
                             <div className="flex gap-2">
                                 {[3, 5, 10].map(mins => (
                                     <button 
                                         key={mins}
                                         onClick={() => setDuration(mins)}
-                                        className={`btn-tactical flex-1 py-4 font-mono font-bold text-lg ${duration === mins ? 'selected' : ''}`}
+                                        className={`btn-tactical flex-1 py-4 rounded-md font-mono font-bold text-lg ${duration === mins ? 'selected' : ''}`}
                                     >
-                                        {mins} <span className="text-xs text-gray-500">MIN</span>
+                                        {mins} <span className="text-[10px] text-gray-500">MIN</span>
                                     </button>
                                 ))}
                             </div>
                         </div>
                     </div>
 
-                    <button 
-                        onClick={handleStart}
-                        className="w-full py-6 mt-4 bg-white text-black font-bold text-xl uppercase tracking-widest hover:bg-brand-orange hover:text-white transition-colors"
-                    >
-                        Initialize Protocol
-                    </button>
+                    <div className="mt-2 mb-2">
+                        <button 
+                            onClick={handleStart}
+                            className="w-full py-5 rounded-md bg-white text-black font-bold text-lg uppercase tracking-widest hover:bg-brand-orange hover:text-white transition-colors"
+                        >
+                            Initialize Protocol
+                        </button>
+                    </div>
                     <Footer />
                 </div>
             );
@@ -277,22 +290,19 @@
             const [stepTimeLeft, setStepTimeLeft] = useState(protocolData.sequence[0].multiplier * baseUnit);
             const [isActive, setIsActive] = useState(false);
             
-            // For the circle animation
             const [circleScale, setCircleScale] = useState(1);
             const [transitionSecs, setTransitionSecs] = useState(0);
 
             const intervalRef = useRef(null);
 
-            // Initial audio/visual cue on mount
             useEffect(() => {
                 setTimeout(() => {
                     setIsActive(true);
                     triggerPhaseCue(0);
-                }, 500); // slight delay to allow render
+                }, 500); 
                 return () => clearInterval(intervalRef.current);
             }, []);
 
-            // Master Timer Loop
             useEffect(() => {
                 if (!isActive) return;
 
@@ -308,7 +318,6 @@
 
                     setStepTimeLeft(prevStepTime => {
                         if (prevStepTime <= 1) {
-                            // Move to next phase
                             const nextIndex = (stepIndex + 1) % protocolData.sequence.length;
                             setStepIndex(nextIndex);
                             const nextDuration = protocolData.sequence[nextIndex].multiplier * baseUnit;
@@ -322,52 +331,46 @@
                 return () => clearInterval(intervalRef.current);
             }, [isActive, stepIndex]);
 
-            // Handle cues and circle animation
             const triggerPhaseCue = (index, nextDuration) => {
                 const step = protocolData.sequence[index];
                 const duration = nextDuration || (step.multiplier * baseUnit);
                 
-                // Audio
                 AudioEngine.playBell();
                 AudioEngine.speak(step.name);
 
-                // Visuals
                 if (step.name === 'INHALE') {
                     setTransitionSecs(duration);
-                    setCircleScale(2.2); // Expand
+                    setCircleScale(2.2); 
                 } else if (step.name === 'EXHALE') {
                     setTransitionSecs(duration);
-                    setCircleScale(1); // Contract
+                    setCircleScale(1); 
                 } else {
-                    setTransitionSecs(0); // Hold size
+                    setTransitionSecs(0); 
                 }
             };
 
             const currentStep = protocolData.sequence[stepIndex];
-            
-            // Format mm:ss
             const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
             return (
-                <div className="h-full flex flex-col p-6 max-w-lg mx-auto relative">
+                <div className="h-full flex flex-col p-4 max-w-lg mx-auto relative">
                     <div className="scanline"></div>
                     
                     {/* Header */}
-                    <div className="flex justify-between items-end border-b border-gray-800 pb-4">
+                    <div className="flex justify-between items-end border-b border-gray-800 pb-4 mt-2">
                         <div>
-                            <div className="text-xs text-gray-500 uppercase tracking-widest">Protocol</div>
-                            <div className="text-xl font-mono text-white">{protocolData.name}</div>
+                            <div className="text-[10px] text-gray-500 uppercase tracking-widest">Protocol</div>
+                            <div className="text-lg font-mono text-white leading-tight">{protocolData.name}</div>
                         </div>
                         <div className="text-right">
-                            <div className="text-xs text-brand-orange uppercase tracking-widest font-bold">Time Remaining</div>
-                            <div className="text-xl font-mono text-white">{formatTime(totalTimeLeft)}</div>
+                            <div className="text-[10px] text-brand-orange uppercase tracking-widest font-bold">Time Remaining</div>
+                            <div className="text-lg font-mono text-white leading-tight">{formatTime(totalTimeLeft)}</div>
                         </div>
                     </div>
 
                     {/* HUD / Visualizer */}
                     <div className="flex-1 flex flex-col items-center justify-center relative">
                         
-                        {/* The Expanding/Contracting Circle */}
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                             <div 
                                 className="breath-circle"
@@ -378,22 +381,21 @@
                             ></div>
                         </div>
 
-                        {/* Status Text (Layered above circle) */}
                         <div className="z-10 text-center">
-                            <div className="text-7xl font-black italic uppercase text-white drop-shadow-[0_0_10px_rgba(0,0,0,1)] tracking-widest mb-2">
+                            <div className="text-6xl md:text-7xl font-black italic uppercase text-white drop-shadow-[0_0_10px_rgba(0,0,0,1)] tracking-widest mb-1">
                                 {currentStep.name}
                             </div>
-                            <div className="text-6xl font-mono font-bold text-brand-orange drop-shadow-[0_0_5px_rgba(0,0,0,0.8)]">
+                            <div className="text-5xl md:text-6xl font-mono font-bold text-brand-orange drop-shadow-[0_0_5px_rgba(0,0,0,0.8)]">
                                 {stepTimeLeft}
                             </div>
                         </div>
                     </div>
 
                     {/* Footer Actions */}
-                    <div className="mt-auto pt-4 flex flex-col items-center z-10">
+                    <div className="mt-auto pt-2 flex flex-col items-center z-10">
                         <button 
                             onClick={onCancel} 
-                            className="text-xs font-bold text-gray-600 uppercase tracking-widest hover:text-brand-orange border border-transparent hover:border-brand-orange px-4 py-2 transition-all mb-4 bg-black/50"
+                            className="text-[10px] font-bold text-gray-600 uppercase tracking-widest hover:text-brand-orange border border-transparent hover:border-brand-orange px-4 py-2 rounded-md transition-all mb-2 bg-black/50"
                         >
                             [ CANCEL OPERATION ]
                         </button>
@@ -406,19 +408,22 @@
         // --- SUMMARY ---
         const Summary = ({ config, onReset }) => {
             return (
-                <div className="h-full flex flex-col p-6 max-w-lg mx-auto justify-center text-center animate-fade-in">
+                <div className="h-full flex flex-col p-4 max-w-lg mx-auto justify-center text-center animate-fade-in">
                     <h1 className="text-4xl font-black text-white italic mb-2">PROTOCOL COMPLETE</h1>
-                    <div className="w-16 h-1 bg-brand-orange mx-auto mb-12"></div>
+                    <div className="w-16 h-1 bg-brand-orange mx-auto mb-10"></div>
                     
-                    <div className="bg-[#111] p-6 border border-gray-800 flex flex-col justify-center mb-12">
-                        <div className="text-xs text-gray-500 uppercase tracking-widest mb-4">Session Analytics</div>
-                        <div className="text-3xl font-mono text-white mb-2">{config.durationMins} MIN</div>
+                    <div className="bg-[#111] p-6 border border-gray-800 rounded-md flex flex-col justify-center mb-10">
+                        <div className="text-[11px] text-gray-500 uppercase tracking-widest mb-4">Session Analytics</div>
+                        <div className="text-4xl font-mono text-white mb-2">{config.durationMins} MIN</div>
                         <div className="text-brand-orange text-sm font-bold uppercase tracking-widest mb-4">{config.protocolData.name}</div>
                         <div className="text-xs text-gray-400 font-mono">Base Multiplier: {config.baseUnit}s</div>
                     </div>
                     
                     <div className="mt-auto flex flex-col items-center">
-                        <button onClick={onReset} className="text-black bg-white border border-white px-8 py-4 text-sm uppercase tracking-widest font-bold hover:bg-brand-orange hover:text-white hover:border-brand-orange transition-all mb-6">
+                        <button 
+                            onClick={onReset} 
+                            className="w-full text-black bg-white rounded-md px-8 py-5 text-sm uppercase tracking-widest font-bold hover:bg-brand-orange hover:text-white transition-all mb-4"
+                        >
                             Return to Dashboard
                         </button>
                         <Footer />
