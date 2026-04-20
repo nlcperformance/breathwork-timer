@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NLC Performance Breathing</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'brand-orange': '#ff6300',
+                        'tactical-black': '#050505',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Oswald:wght@400;600;700&display=swap');
+        
+        body {
+            background-color: #050505;
+            color: #e5e5e5;
+            font-family: 'Oswald', sans-serif;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        .btn-tactical {
+            background: #111;
+            border: 1px solid #333;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            transition: all 0.2s ease;
+        }
+        .btn-tactical:active { transform: translateY(2px); }
+        .btn-tactical.selected {
+            border-color: #ff6300;
+            background: #1a0a00;
+            color: #ff6300;
+            font-weight: bold;
+        }
+
+        /* Breathing Circle Animation Classes */
+        .breath-circle {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: 2px solid #333;
+            background: radial-gradient(circle, rgba(255,99,0,0.2) 0%, rgba(5,5,5,0) 70%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 30px rgba(255, 99, 0, 0.05);
+            margin: 0 auto;
+        }
+
+        .scanline {
+            width: 100%;
+            height: 100px;
+            z-index: 10;
+            background: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(255, 255, 255, 0.02) 50%, rgba(0,0,0,0) 100%);
+            opacity: 0.1;
+            position: absolute;
+            bottom: 100%;
+            animation: scanline 10s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes scanline { 0% { bottom: 100%; } 100% { bottom: -100%; } }
+    </style>
+</head>
+<body>
+    <div id="root" class="h-screen w-full relative"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- AUDIO ENGINE (Voice & Bell) ---
+        const AudioEngine = {
+            ctx: null,
+            init: () => {
+                if (!AudioEngine.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    AudioEngine.ctx = new AudioContext();
+                    
+                    // Unlock speech synthesis on iOS
+                    const utterance = new SpeechSynthesisUtterance('');
+                    window.speechSynthesis.speak(utterance);
+                }
+            },
+            playBell: () => {
+                if (!AudioEngine.ctx) return;
+                const now = AudioEngine.ctx.currentTime;
+                
+                // Deep Tibetan Bell Synth
+                const osc = AudioEngine.ctx.createOscillator();
+                const gain = AudioEngine.ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(320, now); // Resonant frequency
+                
+                gain.gain.setValueAtTime(0, now);
+                gain.gain.linearRampToValueAtTime(0.5, now + 0.1);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 4);
+                
+                osc.connect(gain);
+                gain.connect(AudioEngine.ctx.destination);
+                
+                osc.start(now);
+                osc.stop(now + 4);
+            },
+            speak: (text) => {
+                if (!window.speechSynthesis) return;
+                window.speechSynthesis.cancel(); // clear queue
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 0.85; // Calm, slow pace
+                utterance.pitch = 0.9;
+                window.speechSynthesis.speak(utterance);
+            }
+        };
+
+        // --- PROTOCOLS DEFINITION ---
+        const PROTOCOLS = {
+            BOX: {
+                name: 'Box Breathing',
+                desc: 'Balance & Focus',
+                sequence: [
+                    { name: 'INHALE', multiplier: 1 },
+                    { name: 'HOLD', multiplier: 1 },
+                    { name: 'EXHALE', multiplier: 1 },
+                    { name: 'HOLD', multiplier: 1 }
+                ]
+            },
+            P142: {
+                name: '1:4:2 Protocol',
+                desc: 'Deep CO2 Tolerance',
+                sequence: [
+                    { name: 'INHALE', multiplier: 1 },
+                    { name: 'HOLD', multiplier: 4 },
+                    { name: 'EXHALE', multiplier: 2 }
+                ]
+            },
+            CADENCE: {
+                name: 'Cadence 1:2',
+                desc: 'Down-Regulation',
+                sequence: [
+                    { name: 'INHALE', multiplier: 1 },
+                    { name: 'EXHALE', multiplier: 2 }
+                ]
+            }
+        };
+
+        // --- FOOTER COMPONENT ---
+        const Footer = () => (
+            <div className="w-full text-center pb-4 pt-4 mt-auto">
+                <span className="text-[11px] font-bold tracking-[0.3em] text-gray-500 uppercase">
+                    Adapt. Recover. Master.
+                </span>
+            </div>
+        );
+
+        // --- SETUP DASHBOARD ---
+        const Setup = ({ onLaunch }) => {
+            const [co2Score, setCo2Score] = useState(40);
+            const [protocol, setProtocol] = useState('BOX');
+            const [duration, setDuration] = useState(5); // minutes
+
+            // Calculate Base Unit (X) based on exact Shift Adapt tiers
+            const calculateBase = (score) => {
+                if (score > 80) return 8;
+                if (score >= 60) return 7;
+                if (score >= 40) return 6;
+                if (score >= 20) return 5;
+                return 3; // < 20 seconds
+            };
+            const baseUnit = calculateBase(co2Score);
+
+            const handleStart = () => {
+                AudioEngine.init(); // Unlock audio contexts
+                onLaunch({
+                    co2Score,
+                    baseUnit,
+                    protocolData: PROTOCOLS[protocol],
+                    durationMins: duration
+                });
+            };
+
+            return (
+                <div className="h-full flex flex-col p-6 max-w-lg mx-auto animate-fade-in">
+                    <div className="text-center mt-4 mb-8">
+                        <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter leading-none text-white">
+                            NLC <span className="text-brand-orange">PERFORMANCE</span>
+                        </h1>
+                        <h2 className="text-sm font-bold tracking-[0.4em] text-gray-500 uppercase mt-2">Breathing Protocol</h2>
+                        <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent mt-6"></div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto hide-scrollbar">
+                        {/* CO2 Tolerance Input */}
+                        <div className="mb-8">
+                            <label className="text-xs text-brand-orange uppercase mb-2 block font-bold tracking-widest">1. Daily CO2 Tolerance (Secs)</label>
+                            <div className="flex items-center gap-4 bg-[#111] p-2 border border-gray-800">
+                                <button 
+                                    onClick={() => setCo2Score(Math.max(10, co2Score - 5))}
+                                    className="w-16 h-16 bg-black text-white text-3xl font-bold border border-gray-700 active:bg-gray-800"
+                                >-</button>
+                                <div className="flex-1 text-center">
+                                    <div className="text-5xl font-mono font-bold text-white">{co2Score}</div>
+                                    <div className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Base Breath: {baseUnit}s</div>
+                                </div>
+                                <button 
+                                    onClick={() => setCo2Score(Math.min(120, co2Score + 5))}
+                                    className="w-16 h-16 bg-black text-white text-3xl font-bold border border-gray-700 active:bg-gray-800"
+                                >+</button>
+                            </div>
+                        </div>
+
+                        {/* Protocol Selection */}
+                        <div className="mb-8">
+                            <label className="text-xs text-brand-orange uppercase mb-2 block font-bold tracking-widest">2. Select Architecture</label>
+                            <div className="flex flex-col gap-2">
+                                {Object.entries(PROTOCOLS).map(([key, data]) => (
+                                    <button 
+                                        key={key}
+                                        onClick={() => setProtocol(key)}
+                                        className={`btn-tactical py-4 px-4 flex justify-between items-center ${protocol === key ? 'selected' : ''}`}
+                                    >
+                                        <span className="font-bold text-lg">{data.name}</span>
+                                        <span className="text-xs font-mono">{data.desc}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Duration Selection */}
+                        <div className="mb-6">
+                            <label className="text-xs text-brand-orange uppercase mb-2 block font-bold tracking-widest">3. Session Duration</label>
+                            <div className="flex gap-2">
+                                {[3, 5, 10].map(mins => (
+                                    <button 
+                                        key={mins}
+                                        onClick={() => setDuration(mins)}
+                                        className={`btn-tactical flex-1 py-4 font-mono font-bold text-lg ${duration === mins ? 'selected' : ''}`}
+                                    >
+                                        {mins} <span className="text-xs text-gray-500">MIN</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <button 
+                        onClick={handleStart}
+                        className="w-full py-6 mt-4 bg-white text-black font-bold text-xl uppercase tracking-widest hover:bg-brand-orange hover:text-white transition-colors"
+                    >
+                        Initialize Protocol
+                    </button>
+                    <Footer />
+                </div>
+            );
+        };
+
+        // --- ACTIVE SESSION ---
+        const ActiveSession = ({ config, onFinish, onCancel }) => {
+            const { baseUnit, protocolData, durationMins } = config;
+            
+            const [totalTimeLeft, setTotalTimeLeft] = useState(durationMins * 60);
+            const [stepIndex, setStepIndex] = useState(0);
+            const [stepTimeLeft, setStepTimeLeft] = useState(protocolData.sequence[0].multiplier * baseUnit);
+            const [isActive, setIsActive] = useState(false);
+            
+            // For the circle animation
+            const [circleScale, setCircleScale] = useState(1);
+            const [transitionSecs, setTransitionSecs] = useState(0);
+
+            const intervalRef = useRef(null);
+
+            // Initial audio/visual cue on mount
+            useEffect(() => {
+                setTimeout(() => {
+                    setIsActive(true);
+                    triggerPhaseCue(0);
+                }, 500); // slight delay to allow render
+                return () => clearInterval(intervalRef.current);
+            }, []);
+
+            // Master Timer Loop
+            useEffect(() => {
+                if (!isActive) return;
+
+                intervalRef.current = setInterval(() => {
+                    setTotalTimeLeft(prevTotal => {
+                        if (prevTotal <= 1) {
+                            setIsActive(false);
+                            onFinish();
+                            return 0;
+                        }
+                        return prevTotal - 1;
+                    });
+
+                    setStepTimeLeft(prevStepTime => {
+                        if (prevStepTime <= 1) {
+                            // Move to next phase
+                            const nextIndex = (stepIndex + 1) % protocolData.sequence.length;
+                            setStepIndex(nextIndex);
+                            const nextDuration = protocolData.sequence[nextIndex].multiplier * baseUnit;
+                            triggerPhaseCue(nextIndex, nextDuration);
+                            return nextDuration;
+                        }
+                        return prevStepTime - 1;
+                    });
+                }, 1000);
+
+                return () => clearInterval(intervalRef.current);
+            }, [isActive, stepIndex]);
+
+            // Handle cues and circle animation
+            const triggerPhaseCue = (index, nextDuration) => {
+                const step = protocolData.sequence[index];
+                const duration = nextDuration || (step.multiplier * baseUnit);
+                
+                // Audio
+                AudioEngine.playBell();
+                AudioEngine.speak(step.name);
+
+                // Visuals
+                if (step.name === 'INHALE') {
+                    setTransitionSecs(duration);
+                    setCircleScale(2.2); // Expand
+                } else if (step.name === 'EXHALE') {
+                    setTransitionSecs(duration);
+                    setCircleScale(1); // Contract
+                } else {
+                    setTransitionSecs(0); // Hold size
+                }
+            };
+
+            const currentStep = protocolData.sequence[stepIndex];
+            
+            // Format mm:ss
+            const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+
+            return (
+                <div className="h-full flex flex-col p-6 max-w-lg mx-auto relative">
+                    <div className="scanline"></div>
+                    
+                    {/* Header */}
+                    <div className="flex justify-between items-end border-b border-gray-800 pb-4">
+                        <div>
+                            <div className="text-xs text-gray-500 uppercase tracking-widest">Protocol</div>
+                            <div className="text-xl font-mono text-white">{protocolData.name}</div>
+                        </div>
+                        <div className="text-right">
+                            <div className="text-xs text-brand-orange uppercase tracking-widest font-bold">Time Remaining</div>
+                            <div className="text-xl font-mono text-white">{formatTime(totalTimeLeft)}</div>
+                        </div>
+                    </div>
+
+                    {/* HUD / Visualizer */}
+                    <div className="flex-1 flex flex-col items-center justify-center relative">
+                        
+                        {/* The Expanding/Contracting Circle */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div 
+                                className="breath-circle"
+                                style={{
+                                    transform: `scale(${circleScale})`,
+                                    transition: `transform ${transitionSecs}s linear`
+                                }}
+                            ></div>
+                        </div>
+
+                        {/* Status Text (Layered above circle) */}
+                        <div className="z-10 text-center">
+                            <div className="text-7xl font-black italic uppercase text-white drop-shadow-[0_0_10px_rgba(0,0,0,1)] tracking-widest mb-2">
+                                {currentStep.name}
+                            </div>
+                            <div className="text-6xl font-mono font-bold text-brand-orange drop-shadow-[0_0_5px_rgba(0,0,0,0.8)]">
+                                {stepTimeLeft}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Footer Actions */}
+                    <div className="mt-auto pt-4 flex flex-col items-center z-10">
+                        <button 
+                            onClick={onCancel} 
+                            className="text-xs font-bold text-gray-600 uppercase tracking-widest hover:text-brand-orange border border-transparent hover:border-brand-orange px-4 py-2 transition-all mb-4 bg-black/50"
+                        >
+                            [ CANCEL OPERATION ]
+                        </button>
+                        <Footer />
+                    </div>
+                </div>
+            );
+        };
+
+        // --- SUMMARY ---
+        const Summary = ({ config, onReset }) => {
+            return (
+                <div className="h-full flex flex-col p-6 max-w-lg mx-auto justify-center text-center animate-fade-in">
+                    <h1 className="text-4xl font-black text-white italic mb-2">PROTOCOL COMPLETE</h1>
+                    <div className="w-16 h-1 bg-brand-orange mx-auto mb-12"></div>
+                    
+                    <div className="bg-[#111] p-6 border border-gray-800 flex flex-col justify-center mb-12">
+                        <div className="text-xs text-gray-500 uppercase tracking-widest mb-4">Session Analytics</div>
+                        <div className="text-3xl font-mono text-white mb-2">{config.durationMins} MIN</div>
+                        <div className="text-brand-orange text-sm font-bold uppercase tracking-widest mb-4">{config.protocolData.name}</div>
+                        <div className="text-xs text-gray-400 font-mono">Base Multiplier: {config.baseUnit}s</div>
+                    </div>
+                    
+                    <div className="mt-auto flex flex-col items-center">
+                        <button onClick={onReset} className="text-black bg-white border border-white px-8 py-4 text-sm uppercase tracking-widest font-bold hover:bg-brand-orange hover:text-white hover:border-brand-orange transition-all mb-6">
+                            Return to Dashboard
+                        </button>
+                        <Footer />
+                    </div>
+                </div>
+            );
+        };
+
+        // --- APP ROOT ---
+        const App = () => {
+            const [view, setView] = useState('SETUP'); // SETUP, WORKOUT, SUMMARY
+            const [config, setConfig] = useState(null);
+
+            const handleLaunch = (launchConfig) => {
+                setConfig(launchConfig);
+                setView('WORKOUT');
+            };
+
+            const handleFinish = () => setView('SUMMARY');
+            const handleReset = () => {
+                setConfig(null);
+                setView('SETUP');
+            };
+
+            return (
+                <>
+                    {view === 'SETUP' && <Setup onLaunch={handleLaunch} />}
+                    {view === 'WORKOUT' && <ActiveSession config={config} onFinish={handleFinish} onCancel={handleReset} />}
+                    {view === 'SUMMARY' && <Summary config={config} onReset={handleReset} />}
+                </>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
