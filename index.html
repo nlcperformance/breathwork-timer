@@ -4,9 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>NLC Performance Breathing</title>
+    
+    <!-- React & Babel (Pinned version to prevent dynamic import compilation errors) -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.23.6/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -20,6 +24,7 @@
             }
         }
     </script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Oswald:wght@400;600;700&display=swap');
         
@@ -29,6 +34,8 @@
             font-family: 'Oswald', sans-serif;
             overflow: hidden; /* Prevents all scrolling */
             touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
         }
 
         .font-mono { font-family: 'JetBrains Mono', monospace; }
@@ -39,6 +46,12 @@
             70% { box-shadow: 0 0 0 10px rgba(255, 99, 0, 0); }
         }
         .animate-pulse-orange { animation: pulse-orange 2s infinite; }
+
+        @keyframes fade-in {
+            0% { opacity: 0; transform: translateY(10px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fade-in 0.4s ease-out forwards; }
 
         .btn-tactical {
             background: #111;
@@ -87,17 +100,37 @@
 <body>
     <div id="root" class="h-screen w-full relative"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+    <script type="text/babel" data-type="module">
+        /** @jsx React.createElement */
+        /** @jsxFrag React.Fragment */
+        
+        const { useState, useEffect, useRef, useCallback } = React;
 
-        // --- ZEN AUDIO ENGINE (Singing Bowl Chime) ---
+        // --- ZEN AUDIO & VOICE ENGINE ---
         const AudioEngine = {
             ctx: null,
+            voiceEnabled: true,
             init: () => {
                 if (!AudioEngine.ctx) {
                     const AudioContext = window.AudioContext || window.webkitAudioContext;
                     AudioEngine.ctx = new AudioContext();
                 }
+                if ('speechSynthesis' in window) {
+                    // Touch to initialize speech synthesis
+                    window.speechSynthesis.getVoices();
+                }
+            },
+            setVoiceEnabled: (enabled) => {
+                AudioEngine.voiceEnabled = enabled;
+            },
+            playVoice: (text) => {
+                if (!AudioEngine.voiceEnabled || !('speechSynthesis' in window)) return;
+                
+                window.speechSynthesis.cancel(); // Cancel queue
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 0.85; // Calming, slightly slower pace
+                utterance.pitch = 0.95;
+                window.speechSynthesis.speak(utterance);
             },
             playBell: () => {
                 if (!AudioEngine.ctx) return;
@@ -109,7 +142,7 @@
                 osc1.type = 'sine';
                 osc1.frequency.setValueAtTime(250, now); 
                 gain1.gain.setValueAtTime(0, now);
-                gain1.gain.linearRampToValueAtTime(0.4, now + 0.05);
+                gain1.gain.linearRampToValueAtTime(0.2, now + 0.05); // Lowered volume
                 gain1.gain.exponentialRampToValueAtTime(0.001, now + 3);
                 
                 // Layer 2: Softer Metallic Harmonic Over-tone
@@ -118,7 +151,7 @@
                 osc2.type = 'sine';
                 osc2.frequency.setValueAtTime(650, now); 
                 gain2.gain.setValueAtTime(0, now);
-                gain2.gain.linearRampToValueAtTime(0.1, now + 0.05);
+                gain2.gain.linearRampToValueAtTime(0.05, now + 0.05); // Lowered volume
                 gain2.gain.exponentialRampToValueAtTime(0.001, now + 2);
                 
                 osc1.connect(gain1);
@@ -183,6 +216,7 @@
             const [co2Score, setCo2Score] = useState(40);
             const [protocol, setProtocol] = useState('BOX');
             const [durationMins, setDurationMins] = useState(5); 
+            const [useVoice, setUseVoice] = useState(true);
 
             // Calculate Base Unit (X) based on exact Shift Adapt tiers
             const calculateBase = (score) => {
@@ -196,6 +230,7 @@
 
             const handleStart = () => {
                 AudioEngine.init(); 
+                AudioEngine.setVoiceEnabled(useVoice);
                 
                 const protocolData = PROTOCOLS[protocol];
                 
@@ -218,16 +253,16 @@
             };
 
             return (
-                <div className="h-full flex flex-col p-4 max-w-lg mx-auto animate-fade-in">
-                    <div className="text-center mt-2 mb-2">
+                <div className="h-full flex flex-col p-4 max-w-lg mx-auto animate-fade-in overflow-y-auto">
+                    <div className="text-center mt-4 mb-4">
                         <h1 className="text-4xl font-black italic tracking-tighter leading-none text-white">
                             NLC <span className="text-brand-orange">PERFORMANCE</span>
                         </h1>
-                        <h2 className="text-xs font-bold tracking-[0.4em] text-gray-500 uppercase mt-1">Breathing Protocol</h2>
+                        <h2 className="text-xs font-bold tracking-[0.4em] text-gray-500 uppercase mt-2">Breathing Protocol</h2>
                         <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent mt-4"></div>
                     </div>
 
-                    <div className="flex-1 flex flex-col justify-evenly py-2">
+                    <div className="flex-1 flex flex-col gap-6 py-2">
                         
                         {/* 1. CO2 Input */}
                         <div className="w-full">
@@ -280,9 +315,29 @@
                                 ))}
                             </div>
                         </div>
+
+                        {/* 4. Audio Preferences */}
+                        <div className="w-full">
+                            <label className="text-[11px] text-brand-orange uppercase mb-1 block font-bold tracking-widest">4. Audio Cues</label>
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={() => setUseVoice(true)}
+                                    className={`btn-tactical flex-1 py-3 rounded-md font-bold text-xs tracking-wider ${useVoice ? 'selected' : ''}`}
+                                >
+                                    VOICE + BELLS
+                                </button>
+                                <button 
+                                    onClick={() => setUseVoice(false)}
+                                    className={`btn-tactical flex-1 py-3 rounded-md font-bold text-xs tracking-wider ${!useVoice ? 'selected' : ''}`}
+                                >
+                                    BELLS ONLY
+                                </button>
+                            </div>
+                        </div>
+
                     </div>
 
-                    <div className="mt-2 mb-2">
+                    <div className="mt-6 mb-2">
                         <button 
                             onClick={handleStart}
                             className="w-full py-5 rounded-md bg-white text-black font-bold text-lg uppercase tracking-widest hover:bg-brand-orange hover:text-white transition-colors"
@@ -307,8 +362,12 @@
             
             const [circleScale, setCircleScale] = useState(1);
             const [transitionSecs, setTransitionSecs] = useState(0);
+            
+            // "Hold to cancel" state
+            const [abortProgress, setAbortProgress] = useState(0);
 
             const intervalRef = useRef(null);
+            const abortIntervalRef = useRef(null);
             const wakeLockRef = useRef(null);
 
             // Screen Wake Lock API to prevent phone sleeping
@@ -353,7 +412,6 @@
 
                 intervalRef.current = setInterval(() => {
                     setTotalTimeLeft(prev => {
-                        // Safety fallback
                         if (prev <= 1) return 0;
                         return prev - 1;
                     });
@@ -397,6 +455,7 @@
                 const duration = nextDuration || (step.multiplier * baseUnit);
                 
                 AudioEngine.playBell();
+                AudioEngine.playVoice(step.name);
 
                 if (step.name === 'INHALE') {
                     setTransitionSecs(duration);
@@ -409,11 +468,30 @@
                 }
             };
 
+            // Hold-to-abort logic
+            const handleAbortStart = useCallback(() => {
+                abortIntervalRef.current = setInterval(() => {
+                    setAbortProgress(prev => {
+                        if (prev >= 100) {
+                            clearInterval(abortIntervalRef.current);
+                            onCancel();
+                            return 100;
+                        }
+                        return prev + 5; // Takes roughly 1 second to reach 100
+                    });
+                }, 50);
+            }, [onCancel]);
+
+            const handleAbortEnd = useCallback(() => {
+                clearInterval(abortIntervalRef.current);
+                setAbortProgress(0);
+            }, []);
+
             const currentStep = protocolData.sequence[stepIndex];
             const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
             return (
-                <div className="h-full flex flex-col p-4 max-w-lg mx-auto relative">
+                <div className="h-full flex flex-col p-4 max-w-lg mx-auto relative animate-fade-in">
                     <div className="scanline"></div>
                     
                     {/* Header */}
@@ -459,13 +537,21 @@
                         </div>
                     </div>
 
-                    {/* Footer Actions */}
+                    {/* Footer Actions / Hold to Abort */}
                     <div className="mt-auto pt-2 flex flex-col items-center z-10">
                         <button 
-                            onClick={onCancel} 
-                            className="text-[10px] font-bold text-gray-600 uppercase tracking-widest hover:text-brand-orange border border-transparent hover:border-brand-orange px-4 py-2 rounded-md transition-all mb-2 bg-black/50"
+                            onMouseDown={handleAbortStart}
+                            onMouseUp={handleAbortEnd}
+                            onMouseLeave={handleAbortEnd}
+                            onTouchStart={handleAbortStart}
+                            onTouchEnd={handleAbortEnd}
+                            className="relative overflow-hidden text-[10px] font-bold text-gray-400 uppercase tracking-widest border border-gray-800 px-6 py-3 rounded-md transition-all mb-2 bg-black/80 select-none"
                         >
-                            [ CANCEL OPERATION ]
+                            <div 
+                                className="absolute inset-0 bg-red-900/50 origin-left transition-transform duration-75"
+                                style={{ transform: `scaleX(${abortProgress / 100})` }}
+                            ></div>
+                            <span className="relative z-10">{abortProgress > 0 ? 'HOLD TO ABORT...' : '[ HOLD TO ABORT ]'}</span>
                         </button>
                         <Footer />
                     </div>
